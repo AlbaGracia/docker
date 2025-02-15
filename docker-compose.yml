@@ -1,0 +1,68 @@
+#version: '3.8' #Version de docker compose a utilizar, en las versiones nuevas no es necesario incluirlo
+services:
+  #Base de datos con mysql
+  mysql: #Nombre del servicio
+    image: mysql #Imagen que va a obtener del docker hub
+    container_name: db #Nombre del contenedor, puede ser diferente al del servicio
+    env_file: #Carga los datos del fichero .env / Es posible cargar datos de varios ficheros .env
+      - .env
+    environment: #Definimos las variables de entorno para que obtenga los datos del .env
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD} 
+      MYSQL_DATABASE: ${MYSQL_DATABASE} 
+      MYSQL_USER: ${MYSQL_USER} 
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD} 
+    restart: always #El contenedor se reinicia siempre que se detenga
+    networks: #El contenedor debe conectarse a la red de backend, que no será accesible
+      - backend-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"] #comando que se ejecuta para comprobar el estado del contenedor
+      interval: 30s #Intervalo entre cada comprobación
+      timeout: 10s #Tiempo máximo que Docker espera al comando test
+      retries: 3 #Numero de intentos antes de considerar que esta fallando
+  wordpress: #Nombre del servicio
+    image: bitnami/wordpress #Imagen que obtendrá del Docker Hub
+    container_name: wordpress #Nombre del contenedor
+    ports:  #Puertos para que sea visible desde el host
+      - "80:8080" 
+    env_file: #Carga las variables desde el archivo .env
+      - .env 
+    environment: #Define las variables de entorno de wordpress con los datos del .env
+      WORDPRESS_DATABASE_HOST: ${WORDPRESS_DATABASE_HOST}
+      WORDPRESS_DATABASE_USER: ${WORDPRESS_DATABASE_USER}
+      WORDPRESS_PASSWORD: ${WORDPRESS_PASSWORD}
+      WORDPRESS_DATABASE_NAME: ${WORDPRESS_DATABASE_NAME}
+      WORDPRESS_BLOG_NAME: ${WORDPRESS_BLOG_NAME}
+      WORDPRESS_USERNAME: ${WORDPRESS_USERNAME}
+      WORDPRESS_EMAIL: ${WORDPRESS_EMAIL}
+    depends_on: #Depende de otros servicios que deben crearse antes (mysql se crea antes) 
+      mysql:
+        condition: service_healthy #Espera que los controles de estado pasen las dependencias marcadas
+        restart: true #Si mysql se reinicia wordpress tambien lo haga
+    restart: always #Se reinicia siempre que se dentenga
+    networks: #Se debe conectar a varias redes
+      - frontend-network #En la red de front para ser visible
+      - backend-network #En la red de back para conectarse a MySql
+
+  phpmyadmin: #Nombre del servicio
+    image: phpmyadmin/phpmyadmin #Imagen que obtiene del docker hub
+    container_name: php_my_admin #Nombre del contenedor 
+    ports: #Puertos para exponer los servicios del contenedor al host y permitir acceso desde fuera
+      - "8080:80" #Puerto 8080 es del host y el 80 es el puerto dentro del contenedor
+    env_file: #Carga las variables desde el archivo .env
+      - .env 
+    environment: #Definimos las variables de entorno
+      PMA_HOST: mysql  # Nombre del servicio MySQL dentro de la red Docker
+      #PMA_USER: ${MYSQL_USER}  # Usuario de MySQL
+      #PMA_PASSWORD: ${MYSQL_PASSWORD}  # Contraseña de MySQL
+    depends_on: #Depende del servicio mysql por lo que se creara despues de ese
+      mysql:
+        condition: service_healthy #Espera que los controles de estado pasen las dependencias marcadas
+        restart: true #Si mysql se reinicia phpmyadmin tambien lo haga
+    restart: always #Se reinicie siempre que se detenga
+    networks: #Red a la que pertence para verse desde elhost
+      - frontend-network
+      - backend-network
+
+networks: #Creación de las dos redes necesarias
+  frontend-network: #Red para los servicios accesibles desde el host
+  backend-network: #Red privada solo para MySQL
