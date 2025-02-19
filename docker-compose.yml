@@ -23,7 +23,8 @@ services:
     image: bitnami/wordpress #Imagen que obtendrá del Docker Hub
     container_name: wordpress #Nombre del contenedor
     ports:  #Puertos para que sea visible desde el host
-      - "80:8080" 
+      - "80:8080"
+      - "443:8080" 
     env_file: #Carga las variables desde el archivo .env
       - .env 
     environment: #Define las variables de entorno de wordpress con los datos del .env
